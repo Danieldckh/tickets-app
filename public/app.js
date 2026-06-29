@@ -696,6 +696,13 @@ function renderDrawer(t) {
     html += '</div>';
   }
 
+  // Danger zone — permanent delete.
+  html += '<hr class="divider" />';
+  html += '<div class="danger-zone">';
+  html += '<div class="danger-zone-label">Danger zone</div>';
+  html += '<button id="dr-delete" class="btn-danger" type="button">Delete ticket</button>';
+  html += '</div>';
+
   els.drawerBody.innerHTML = html;
 
   // Screenshot lightbox.
@@ -708,6 +715,11 @@ function renderDrawer(t) {
   // Save button handler.
   $('dr-save').addEventListener('click', function () {
     saveDrawerChanges(t.id);
+  });
+
+  // Delete button handler.
+  $('dr-delete').addEventListener('click', function () {
+    confirmDeleteTicket(t.id);
   });
 }
 
@@ -748,6 +760,74 @@ async function saveDrawerChanges(id) {
   } finally {
     btn.disabled = false;
     btn.textContent = 'Save changes';
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Delete ticket (in-app confirm, no blocking dialogs)
+// ---------------------------------------------------------------------------
+function confirmDeleteTicket(id) {
+  // Build an in-app confirmation modal that matches the app's styling.
+  var overlay = document.createElement('div');
+  overlay.className = 'modal-overlay confirm-overlay';
+  overlay.innerHTML =
+    '<div class="modal confirm-modal" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title">' +
+      '<div class="modal-header">' +
+        '<h2 id="confirm-title">Delete ticket</h2>' +
+      '</div>' +
+      '<div class="modal-body">' +
+        '<p class="confirm-text">Delete this ticket permanently? This cannot be undone.</p>' +
+        '<div class="confirm-error hidden" id="confirm-error"></div>' +
+        '<div class="modal-footer">' +
+          '<button class="btn-secondary" id="confirm-cancel" type="button">Cancel</button>' +
+          '<button class="btn-danger" id="confirm-delete" type="button">Delete</button>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  document.body.appendChild(overlay);
+
+  function close() {
+    if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+    document.removeEventListener('keydown', onKey);
+  }
+  function onKey(e) { if (e.key === 'Escape') close(); }
+  document.addEventListener('keydown', onKey);
+
+  overlay.addEventListener('click', function (e) {
+    if (e.target === overlay) close();
+  });
+  overlay.querySelector('#confirm-cancel').addEventListener('click', close);
+  overlay.querySelector('#confirm-delete').addEventListener('click', function () {
+    deleteTicket(id, overlay, close);
+  });
+}
+
+async function deleteTicket(id, overlay, close) {
+  var btn    = overlay.querySelector('#confirm-delete');
+  var cancel = overlay.querySelector('#confirm-cancel');
+  var errEl  = overlay.querySelector('#confirm-error');
+
+  errEl.classList.add('hidden');
+  btn.disabled = true;
+  cancel.disabled = true;
+  btn.textContent = 'Deleting…';
+
+  try {
+    var res = await fetch('/api/tickets/' + id, { method: 'DELETE' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+
+    // Remove from state and refresh the views.
+    state.tickets = state.tickets.filter(function (t) { return t.id !== id; });
+    close();
+    closeDrawer();
+    render();
+    toast('Ticket deleted', 'success');
+  } catch (err) {
+    errEl.textContent = 'Could not delete ticket: ' + err.message;
+    errEl.classList.remove('hidden');
+    btn.disabled = false;
+    cancel.disabled = false;
+    btn.textContent = 'Delete';
   }
 }
 

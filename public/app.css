@@ -28,7 +28,7 @@
 
   --blue-100: #dbeafe;  --blue-600: #2563eb;
   --amber-100: #fef3c7; --amber-600: #d97706;
-  --red-100: #fee2e2;   --red-600: #dc2626;
+  --red-100: #fee2e2;   --red-600: #dc2626;   --red-700: #b91c1c;
   --purple-100: #ede9fe; --purple-600: #7c3aed;
 
   /* Status */
@@ -171,6 +171,24 @@ input, select, textarea { font: inherit; }
   transition: background var(--transition);
 }
 .btn-secondary:hover { background: var(--gray-50); }
+
+/* Danger button */
+.btn-danger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border: 1px solid var(--red-100);
+  border-radius: var(--radius);
+  background: var(--white);
+  color: var(--red-600);
+  font-size: 13px;
+  font-weight: 600;
+  transition: background var(--transition), color var(--transition), border-color var(--transition);
+}
+.btn-danger:hover { background: var(--red-600); color: var(--white); border-color: var(--red-600); }
+.btn-danger:active { background: var(--red-700); border-color: var(--red-700); }
+.btn-danger:disabled { opacity: .55; cursor: not-allowed; }
 
 /* User badge + logout */
 .header-user {
@@ -707,6 +725,35 @@ input, select, textarea { font: inherit; }
   display: flex;
   justify-content: flex-end;
   padding-top: 4px;
+}
+
+/* Danger zone */
+.danger-zone {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.danger-zone-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--gray-500);
+}
+
+/* Delete confirmation modal */
+.confirm-overlay { z-index: 700; }
+.confirm-modal { max-width: 420px; }
+.confirm-text {
+  font-size: 14px;
+  color: var(--gray-700);
+  line-height: 1.5;
+}
+.confirm-error {
+  font-size: 13px;
+  color: var(--red-600);
+  background: var(--red-100);
+  padding: 8px 12px;
+  border-radius: var(--radius);
 }
 
 /* ── Modal ────────────────────────────────────────────────── */
