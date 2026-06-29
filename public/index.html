@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ProAgri Tickets</title>
+  <link rel="stylesheet" href="/app.css" />
+  <script src="/config.js"></script>
+</head>
+<body>
+
+  <!-- ── Header ─────────────────────────────────────────────────────────── -->
+  <header class="app-header">
+    <div class="header-brand">
+      <svg class="brand-icon" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+        <rect width="32" height="32" rx="8" fill="#2d6a4f"/>
+        <path d="M8 22 L14 10 L20 18 L24 13 L26 22 Z" fill="#fff" opacity="0.9"/>
+        <circle cx="24" cy="13" r="2.5" fill="#95d5b2"/>
+      </svg>
+      <span class="brand-name">ProAgri <strong>Tickets</strong></span>
+    </div>
+
+    <div class="header-controls">
+      <div class="view-toggle" role="group" aria-label="View">
+        <button id="btn-board"    class="toggle-btn active" data-view="board">
+          <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M2 4a2 2 0 012-2h3a2 2 0 012 2v12a2 2 0 01-2 2H4a2 2 0 01-2-2V4zm7 0a2 2 0 012-2h3a2 2 0 012 2v12a2 2 0 01-2 2h-3a2 2 0 01-2-2V4z"/></svg>
+          Board
+        </button>
+        <button id="btn-calendar" class="toggle-btn" data-view="calendar">
+          <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd"/></svg>
+          Calendar
+        </button>
+        <button id="btn-overview" class="toggle-btn" data-view="overview">
+          <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clip-rule="evenodd"/></svg>
+          Overview
+        </button>
+      </div>
+
+      <button id="btn-new" class="btn-primary">
+        <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd"/></svg>
+        New ticket
+      </button>
+
+      <div class="header-user">
+        <span id="user-name" class="user-label"></span>
+        <a href="/logout" class="logout-link" title="Sign out">
+          <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M3 3a1 1 0 00-1 1v12a1 1 0 102 0V4a1 1 0 00-1-1zm10.293 9.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L14.586 9H7a1 1 0 100 2h7.586l-1.293 1.293z" clip-rule="evenodd"/></svg>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- ── Main content area ───────────────────────────────────────────────── -->
+  <main id="main" class="app-main">
+    <div id="loading-state" class="loading-center">
+      <div class="spinner"></div>
+      <p>Loading tickets…</p>
+    </div>
+    <div id="error-state"  class="error-center hidden"></div>
+    <div id="board-view"    class="hidden"></div>
+    <div id="calendar-view" class="hidden"></div>
+    <div id="overview-view" class="hidden"></div>
+  </main>
+
+  <!-- ── Detail drawer ───────────────────────────────────────────────────── -->
+  <div id="drawer-overlay" class="drawer-overlay hidden" aria-hidden="true"></div>
+  <aside id="detail-drawer" class="detail-drawer hidden" aria-label="Ticket detail">
+    <div class="drawer-header">
+      <h2 id="drawer-title" class="drawer-heading"></h2>
+      <button id="drawer-close" class="icon-btn" aria-label="Close">
+        <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+      </button>
+    </div>
+    <div id="drawer-body" class="drawer-body"></div>
+  </aside>
+
+  <!-- ── New ticket modal ────────────────────────────────────────────────── -->
+  <div id="modal-overlay" class="modal-overlay hidden" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <div class="modal-header">
+        <h2 id="modal-title">New ticket</h2>
+        <button id="modal-close" class="icon-btn" aria-label="Close modal">
+          <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+        </button>
+      </div>
+      <form id="new-ticket-form" class="modal-body" novalidate>
+        <div class="field">
+          <label for="f-title">Title</label>
+          <input id="f-title" name="title" type="text" placeholder="Short summary…" />
+        </div>
+        <div class="field">
+          <label for="f-message">Description <span class="required">*</span></label>
+          <textarea id="f-message" name="message" rows="5" placeholder="Describe the issue or request…" required></textarea>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label for="f-type">Type</label>
+            <select id="f-type" name="type">
+              <option value="bug">Bug</option>
+              <option value="feature">Feature</option>
+              <option value="other" selected>Other</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="f-priority">Priority</label>
+            <select id="f-priority" name="priority">
+              <option value="low">Low</option>
+              <option value="medium" selected>Medium</option>
+              <option value="high">High</option>
+              <option value="urgent">Urgent</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="f-deadline">Deadline</label>
+            <input id="f-deadline" name="deadline" type="date" />
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" id="modal-cancel" class="btn-secondary">Cancel</button>
+          <button type="submit" id="modal-submit" class="btn-primary">Create ticket</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ── Toast container ─────────────────────────────────────────────────── -->
+  <div id="toast-container" aria-live="polite" aria-atomic="true"></div>
+
+  <script src="/app.js"></script>
+</body>
+</html>
