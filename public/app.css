@@ -542,7 +542,63 @@ input, select, textarea { font: inherit; }
   font-size: 11px;
   color: var(--gray-400);
   padding: 2px 6px;
+  cursor: pointer;
 }
+.cal-more:hover { color: var(--green-700); }
+.cal-day:not(.other-month) { cursor: pointer; }
+.cal-day:not(.other-month):hover { background: var(--green-50); }
+
+/* ── Day modal (all tickets for one calendar day) ─────────── */
+.day-modal-overlay { z-index: 320; }
+.day-modal { max-width: 460px; }
+.day-modal .modal-close {
+  border: none;
+  background: none;
+  font-size: 22px;
+  line-height: 1;
+  color: var(--gray-400);
+  cursor: pointer;
+  padding: 0 4px;
+  transition: color var(--transition);
+}
+.day-modal .modal-close:hover { color: var(--gray-700); }
+.day-modal-body { gap: 8px; }
+.day-row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius);
+  background: var(--white);
+  cursor: pointer;
+  transition: background var(--transition), border-color var(--transition);
+}
+.day-row:hover { background: var(--gray-50); border-color: var(--green-300); }
+.day-row-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--gray-900);
+}
+.day-row-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.day-row-status {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+.day-row-status.status-new         { background: var(--status-new-bg);      color: var(--status-new); }
+.day-row-status.status-triage      { background: var(--status-triage-bg);   color: var(--status-triage); }
+.day-row-status.status-in_progress { background: var(--status-progress-bg); color: var(--status-progress); }
+.day-row-status.status-done        { background: var(--status-done-bg);     color: var(--status-done); }
 
 /* ── Detail drawer ────────────────────────────────────────── */
 .drawer-overlay {

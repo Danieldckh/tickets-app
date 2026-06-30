@@ -414,8 +414,79 @@ function renderCalendar() {
 
   // Wire ticket chips.
   els.calView.querySelectorAll('.cal-ticket-chip[data-id]').forEach(function (chip) {
-    chip.addEventListener('click', function () {
+    chip.addEventListener('click', function (e) {
+      e.stopPropagation();
       openDrawer(parseInt(chip.dataset.id, 10));
+    });
+  });
+
+  // Wire day cells: clicking a day (or its "+N more") opens a modal listing
+  // ALL that day's tickets. A chip click is handled above (and stops here),
+  // so it opens the drawer directly. Empty days do nothing.
+  els.calView.querySelectorAll('.cal-day:not(.other-month)').forEach(function (cell) {
+    cell.addEventListener('click', function () {
+      var numEl = cell.querySelector('.cal-day-num');
+      var dayNum = numEl ? parseInt(numEl.textContent, 10) : NaN;
+      var dayTickets = byDay[dayNum] || [];
+      if (!dayTickets.length) return;
+      openDayModal(cell.dataset.date, dayTickets);
+    });
+  });
+}
+
+// Modal listing every ticket on a single calendar day.
+function openDayModal(dateStr, tickets) {
+  var statusLabels = {
+    new: 'New', triage: 'Triage', in_progress: 'In Progress', done: 'Done',
+  };
+  var heading = dateStr;
+  var d = new Date(dateStr + 'T00:00:00');
+  if (!isNaN(d.getTime())) {
+    heading = DAY_NAMES[d.getDay()] + ', ' + MONTH_NAMES[d.getMonth()] + ' ' + d.getDate() + ', ' + d.getFullYear();
+  }
+
+  var rows = tickets.map(function (t) {
+    var statusKey = t.status || 'new';
+    var statusTxt = statusLabels[statusKey] || statusKey;
+    var meta =
+      '<span class="day-row-status status-' + esc(statusKey) + '">' + esc(statusTxt) + '</span>' +
+      buildPriorityPill(t.priority) +
+      (t.deadline ? '<span class="badge badge-deadline">Due ' + esc(t.deadline) + '</span>' : '');
+    return (
+      '<button class="day-row" type="button" data-id="' + t.id + '">' +
+        '<span class="day-row-title">' + esc(t.title || '#' + t.id) + '</span>' +
+        '<span class="day-row-meta">' + meta + '</span>' +
+      '</button>'
+    );
+  }).join('');
+
+  var overlay = document.createElement('div');
+  overlay.className = 'modal-overlay day-modal-overlay';
+  overlay.innerHTML =
+    '<div class="modal day-modal" role="dialog" aria-modal="true" aria-labelledby="day-modal-title">' +
+      '<div class="modal-header">' +
+        '<h2 id="day-modal-title">' + esc(heading) + ' · ' + tickets.length + ' ticket' + (tickets.length === 1 ? '' : 's') + '</h2>' +
+        '<button class="modal-close" id="day-modal-close" type="button" aria-label="Close">&times;</button>' +
+      '</div>' +
+      '<div class="modal-body day-modal-body">' + rows + '</div>' +
+    '</div>';
+  document.body.appendChild(overlay);
+
+  function close() {
+    if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+    document.removeEventListener('keydown', onKey);
+  }
+  function onKey(e) { if (e.key === 'Escape') close(); }
+  document.addEventListener('keydown', onKey);
+
+  overlay.addEventListener('click', function (e) {
+    if (e.target === overlay) close();
+  });
+  overlay.querySelector('#day-modal-close').addEventListener('click', close);
+  overlay.querySelectorAll('.day-row[data-id]').forEach(function (row) {
+    row.addEventListener('click', function () {
+      close();
+      openDrawer(parseInt(row.dataset.id, 10));
     });
   });
 }
@@ -633,7 +704,7 @@ function renderDrawer(t) {
       html += (
         '<div class="voice-item">' +
           '<span class="voice-label">' + esc(a.filename || 'voice note') + '</span>' +
-          '<audio controls src="' + src + '" preload="none"></audio>' +
+          '<audio class="voice-audio" controls preload="metadata" src="' + src + '"></audio>' +
         '</div>'
       );
     });
@@ -718,6 +789,18 @@ function renderDrawer(t) {
   els.drawerBody.querySelectorAll('.screenshot-thumb').forEach(function (thumb) {
     thumb.addEventListener('click', function () {
       openLightbox(thumb.dataset.src);
+    });
+  });
+
+  // Voice players: force MediaRecorder webm blobs (whose header reports
+  // duration === Infinity) to compute their real length so the player shows
+  // the true duration instead of 0:00 until you press play.
+  els.drawerBody.querySelectorAll('audio.voice-audio').forEach(function (au) {
+    au.addEventListener('loadedmetadata', function () {
+      if (!isFinite(au.duration)) { au.currentTime = 1e7; }
+    });
+    au.addEventListener('durationchange', function () {
+      if (isFinite(au.duration) && au.currentTime !== 0) { au.currentTime = 0; }
     });
   });
 
