@@ -426,6 +426,9 @@ input, select, textarea { font: inherit; }
 .badge-deadline.overdue { background: var(--red-100);    color: var(--red-600); }
 .badge-deadline.today   { background: var(--amber-100);  color: var(--amber-600); }
 
+/* Completed date */
+.badge-completed        { background: var(--green-100);  color: var(--green-800); }
+
 /* AI category */
 .badge-ai { background: var(--purple-100); color: var(--purple-600); }
 

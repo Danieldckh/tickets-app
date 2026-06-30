@@ -206,6 +206,7 @@ function buildColumn(col, cards) {
 
 function buildCard(t) {
   var deadlineBadge = t.deadline ? buildDeadlineBadge(t.deadline) : '';
+  var completedBadge = (t.status === 'done' && t.completedAt) ? buildCompletedBadge(t.completedAt) : '';
   var attachCount   = t.attachmentCount || 0;
   var attIcon = attachCount
     ? '<span class="attachment-badge"><svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8 4a3 3 0 00-3 3v4a5 5 0 0010 0V7a1 1 0 112 0v4a7 7 0 11-14 0V7a5 5 0 0110 0v4a3 3 0 11-6 0V7a1 1 0 012 0v4a1 1 0 102 0V7a3 3 0 00-3-3z" clip-rule="evenodd"/></svg>' + attachCount + '</span>'
@@ -222,6 +223,7 @@ function buildCard(t) {
         buildPriorityPill(t.priority) +
         (t.aiCategory ? '<span class="badge badge-ai">' + esc(t.aiCategory) + '</span>' : '') +
         deadlineBadge +
+        completedBadge +
       '</div>' +
       '<div class="card-footer">' +
         '<span class="card-submitter">' + esc(t.submitterName || '') + '</span>' +
@@ -555,6 +557,13 @@ function renderDrawer(t) {
   html += '<label>Type</label>';
   html += '<div>' + buildTypeBadge(t.type) + '</div>';
   html += '</div>';
+
+  if (t.completedAt) {
+    html += '<div class="drawer-field">';
+    html += '<label>Completed</label>';
+    html += '<div>' + esc(isoDate(new Date(t.completedAt))) + '</div>';
+    html += '</div>';
+  }
 
   html += '</div>'; // .drawer-meta-grid
 
@@ -941,6 +950,10 @@ function buildDeadlineBadge(deadline) {
   if (deadline < today)  cls += ' overdue';
   if (deadline === today) cls += ' today';
   return '<span class="' + cls + '">Due ' + esc(deadline) + '</span>';
+}
+
+function buildCompletedBadge(completedAt) {
+  return '<span class="badge badge-completed">Done ' + esc(isoDate(new Date(completedAt))) + '</span>';
 }
 
 function priorityColor(priority) {
