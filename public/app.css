@@ -538,6 +538,17 @@ input, select, textarea { font: inherit; }
   width: 6px; height: 6px;
   border-radius: 50%;
 }
+/* Done ticket, placed on its completion date. */
+.cal-chip-done {
+  background: var(--green-300);
+  color: var(--green-900);
+}
+.cal-chip-done:hover { background: var(--green-500); }
+.cal-chip-done .chip-check {
+  flex-shrink: 0;
+  width: 11px; height: 11px;
+  color: var(--green-800);
+}
 .cal-more {
   font-size: 11px;
   color: var(--gray-400);

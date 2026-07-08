@@ -339,15 +339,22 @@ function renderCalendar() {
   var today     = new Date();
   var todayStr  = isoDate(today);
 
-  // Map tickets with deadline to day numbers in this month.
+  // Map tickets to day numbers in this month. A done ticket lands on the day
+  // it was completed (completedAt); everything else lands on its deadline.
+  // So the calendar shows both what's coming up and what actually got done when.
   var byDay = {};
+  function placeOn(d, entry) {
+    if (isNaN(d.getTime())) return;
+    if (d.getFullYear() !== y || d.getMonth() !== m) return;
+    var day = d.getDate();
+    if (!byDay[day]) byDay[day] = [];
+    byDay[day].push(entry);
+  }
   state.tickets.forEach(function (t) {
-    if (!t.deadline) return;
-    var d = new Date(t.deadline + 'T00:00:00'); // parse as local date
-    if (d.getFullYear() === y && d.getMonth() === m) {
-      var day = d.getDate();
-      if (!byDay[day]) byDay[day] = [];
-      byDay[day].push(t);
+    if (t.status === 'done' && t.completedAt) {
+      placeOn(new Date(t.completedAt), { t: t, kind: 'done' });
+    } else if (t.deadline) {
+      placeOn(new Date(t.deadline + 'T00:00:00'), { t: t, kind: 'deadline' });
     }
   });
 
@@ -367,12 +374,22 @@ function renderCalendar() {
     var visible = dayTickets.slice(0, maxShow);
     var extra   = dayTickets.length - maxShow;
 
-    var chipsHtml = visible.map(function (t) {
+    var chipsHtml = visible.map(function (entry) {
+      var t = entry.t;
+      var label = esc(t.title || '#' + t.id);
+      if (entry.kind === 'done') {
+        return (
+          '<div class="cal-ticket-chip cal-chip-done" data-id="' + t.id + '" title="Done: ' + label + '">' +
+            '<svg class="chip-check" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>' +
+            label +
+          '</div>'
+        );
+      }
       var dot = priorityColor(t.priority);
       return (
-        '<div class="cal-ticket-chip" data-id="' + t.id + '" title="' + esc(t.title || '#' + t.id) + '">' +
+        '<div class="cal-ticket-chip" data-id="' + t.id + '" title="' + label + '">' +
           '<span class="chip-dot" style="background:' + dot + '"></span>' +
-          esc(t.title || '#' + t.id) +
+          label +
         '</div>'
       );
     }).join('');
@@ -427,15 +444,16 @@ function renderCalendar() {
     cell.addEventListener('click', function () {
       var numEl = cell.querySelector('.cal-day-num');
       var dayNum = numEl ? parseInt(numEl.textContent, 10) : NaN;
-      var dayTickets = byDay[dayNum] || [];
-      if (!dayTickets.length) return;
-      openDayModal(cell.dataset.date, dayTickets);
+      var dayEntries = byDay[dayNum] || [];
+      if (!dayEntries.length) return;
+      openDayModal(cell.dataset.date, dayEntries);
     });
   });
 }
 
-// Modal listing every ticket on a single calendar day.
-function openDayModal(dateStr, tickets) {
+// Modal listing every ticket on a single calendar day. `entries` are
+// { t, kind } wrappers — kind 'done' means it landed here by completion date.
+function openDayModal(dateStr, entries) {
   var statusLabels = {
     new: 'New', triage: 'Triage', in_progress: 'In Progress', done: 'Done',
   };
@@ -445,13 +463,17 @@ function openDayModal(dateStr, tickets) {
     heading = DAY_NAMES[d.getDay()] + ', ' + MONTH_NAMES[d.getMonth()] + ' ' + d.getDate() + ', ' + d.getFullYear();
   }
 
-  var rows = tickets.map(function (t) {
+  var rows = entries.map(function (entry) {
+    var t = entry.t;
     var statusKey = t.status || 'new';
     var statusTxt = statusLabels[statusKey] || statusKey;
+    var dateBadge = entry.kind === 'done'
+      ? '<span class="badge badge-completed">Done ' + esc(isoDate(new Date(t.completedAt))) + '</span>'
+      : (t.deadline ? '<span class="badge badge-deadline">Due ' + esc(t.deadline) + '</span>' : '');
     var meta =
       '<span class="day-row-status status-' + esc(statusKey) + '">' + esc(statusTxt) + '</span>' +
       buildPriorityPill(t.priority) +
-      (t.deadline ? '<span class="badge badge-deadline">Due ' + esc(t.deadline) + '</span>' : '');
+      dateBadge;
     return (
       '<button class="day-row" type="button" data-id="' + t.id + '">' +
         '<span class="day-row-title">' + esc(t.title || '#' + t.id) + '</span>' +
@@ -465,7 +487,7 @@ function openDayModal(dateStr, tickets) {
   overlay.innerHTML =
     '<div class="modal day-modal" role="dialog" aria-modal="true" aria-labelledby="day-modal-title">' +
       '<div class="modal-header">' +
-        '<h2 id="day-modal-title">' + esc(heading) + ' · ' + tickets.length + ' ticket' + (tickets.length === 1 ? '' : 's') + '</h2>' +
+        '<h2 id="day-modal-title">' + esc(heading) + ' · ' + entries.length + ' ticket' + (entries.length === 1 ? '' : 's') + '</h2>' +
         '<button class="modal-close" id="day-modal-close" type="button" aria-label="Close">&times;</button>' +
       '</div>' +
       '<div class="modal-body day-modal-body">' + rows + '</div>' +
