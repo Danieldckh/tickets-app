@@ -73,19 +73,23 @@ app.get('/sso', (req, res) => {
     return res.redirect(loginUrl);
   }
 
-  if (decoded.role !== 'admin') {
+  // Admins get the full (dev) board; managers get the managers-only board.
+  // Everyone else is refused.
+  const isAdmin   = decoded.role === 'admin';
+  const isManager = decoded.managerAccess === true;
+  if (!isAdmin && !isManager) {
     return res.status(403).send(
       `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Access denied</title>` +
       `<style>body{font-family:system-ui,sans-serif;padding:2rem;max-width:480px;margin:auto}</style></head>` +
-      `<body><h2>Admins only</h2><p>Your account (<strong>${decoded.email || ''}</strong>) ` +
-      `does not have admin access to the Tickets app.</p>` +
+      `<body><h2>No access</h2><p>Your account (<strong>${decoded.email || ''}</strong>) ` +
+      `does not have access to the Tickets app.</p>` +
       `<p><a href="${AGRI360_API_BASE}">Return to Agri360</a></p></body></html>`
     );
   }
 
   // Issue a 12-hour session cookie.
   const sessionToken = jwt.sign(
-    { sub: decoded.sub, email: decoded.email, name: decoded.name, role: decoded.role },
+    { sub: decoded.sub, email: decoded.email, name: decoded.name, role: decoded.role, managerAccess: isManager },
     SESSION_SECRET,
     { expiresIn: '12h' }
   );
@@ -98,7 +102,8 @@ app.get('/sso', (req, res) => {
     maxAge:   12 * 60 * 60 * 1000,
   });
 
-  return res.redirect('/');
+  // Admins land on the main (dev) board; managers on the managers board.
+  return res.redirect(isAdmin ? '/' : '/managers');
 });
 
 // Logout — clear cookie and bounce to Agri360 login.
@@ -221,13 +226,49 @@ app.all('/api/tickets*', async (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
-// Static SPA + fallback
+// Board access gating (HTML routes only) — enforced server-side so a direct
+// link can't reveal a board the user isn't entitled to.
+//   • The main (dev) board at '/' is ADMIN-ONLY. A non-admin manager hitting
+//     it is bounced to '/managers'.
+//   • The '/managers' board requires admin OR managerAccess.
+// The SPA is one index.html; it detects the board from location.pathname.
 // ---------------------------------------------------------------------------
-app.use(express.static(PUBLIC_DIR));
+const INDEX_HTML = path.join(PUBLIC_DIR, 'index.html');
 
-app.get('*', (_req, res) => {
-  res.sendFile(path.join(PUBLIC_DIR, 'index.html'));
+function accessDenied(res) {
+  return res.status(403).send(
+    `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Access denied</title>` +
+    `<style>body{font-family:system-ui,sans-serif;padding:2rem;max-width:480px;margin:auto}</style></head>` +
+    `<body><h2>No access</h2><p>You do not have access to this board.</p>` +
+    `<p><a href="/managers">Go to the managers board</a></p></body></html>`
+  );
+}
+
+function serveMainBoard(req, res) {
+  if (req.user.role !== 'admin') {
+    // A logged-in manager without admin belongs on the managers board.
+    if (req.user.managerAccess) return res.redirect('/managers');
+    return accessDenied(res);
+  }
+  return res.sendFile(INDEX_HTML);
+}
+
+// Managers board — admin or manager.
+app.get(['/managers', '/managers/*'], (req, res) => {
+  if (!(req.user.role === 'admin' || req.user.managerAccess)) return accessDenied(res);
+  return res.sendFile(INDEX_HTML);
 });
+
+// Main (dev) board HTML entry points — admin only. Gated BEFORE express.static
+// so its automatic index.html serving can't leak the board to a manager.
+app.get(['/', '/index.html'], serveMainBoard);
+
+// Static assets (app.js, app.css, images). index:false so '/' never resolves
+// to index.html here — the gated routes above own the HTML entry points.
+app.use(express.static(PUBLIC_DIR, { index: false }));
+
+// Any other path = the main (dev) board (SPA fallback) → admin only.
+app.get('*', serveMainBoard);
 
 // ---------------------------------------------------------------------------
 // Start

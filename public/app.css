@@ -107,6 +107,24 @@ input, select, textarea { font: inherit; }
 }
 .brand-name strong { color: var(--green-800); }
 
+/* Managers-board badge — hidden by default, revealed by the body class the
+   SPA adds only on /managers. */
+.managers-badge {
+  display: none;
+  align-items: center;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--amber-100);
+  color: var(--amber-600);
+  border: 1px solid var(--amber-600);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+body.managers-board .managers-badge { display: inline-flex; }
+
 .header-controls {
   display: flex;
   align-items: center;
@@ -310,6 +328,23 @@ input, select, textarea { font: inherit; }
 .board-col[data-status="in_progress"] { border-top: 3px solid var(--status-progress); }
 .board-col[data-status="done"]        { border-top: 3px solid var(--status-done); }
 
+/* Managers board: 3 traffic-light columns (Open=red, In Progress=amber,
+   Done=green). Scoped to the body class so the main board is untouched. */
+.managers-board .board {
+  grid-template-columns: repeat(3, minmax(240px, 1fr));
+}
+.managers-board .board-col[data-status="open"]        .col-title { color: var(--red-600); }
+.managers-board .board-col[data-status="in_progress"] .col-title { color: var(--amber-600); }
+.managers-board .board-col[data-status="done"]        .col-title { color: var(--status-done); }
+
+.managers-board .board-col[data-status="open"]        { border-top: 3px solid var(--red-600); }
+.managers-board .board-col[data-status="in_progress"] { border-top: 3px solid var(--amber-600); }
+.managers-board .board-col[data-status="done"]        { border-top: 3px solid var(--status-done); }
+
+/* Manager-board status chips (drawer / calendar day modal). */
+.managers-board .day-row-status.status-open        { background: var(--red-100);    color: var(--red-600); }
+.managers-board .day-row-status.status-in_progress { background: var(--amber-100);  color: var(--amber-600); }
+
 .col-cards {
   padding: 10px;
   display: flex;
@@ -382,6 +417,11 @@ input, select, textarea { font: inherit; }
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.card-assignee {
+  color: var(--green-700);
+  font-weight: 600;
+  margin-left: 4px;
 }
 .attachment-badge {
   display: flex;
@@ -1075,7 +1115,8 @@ input, select, textarea { font: inherit; }
 
 /* ── Responsive ───────────────────────────────────────────── */
 @media (max-width: 900px) {
-  .board {
+  .board,
+  .managers-board .board {
     grid-template-columns: repeat(2, 1fr);
   }
   .user-label { display: none; }
@@ -1093,7 +1134,8 @@ input, select, textarea { font: inherit; }
 
   .app-main { padding: 16px 12px; }
 
-  .board {
+  .board,
+  .managers-board .board {
     grid-template-columns: 1fr;
   }
 

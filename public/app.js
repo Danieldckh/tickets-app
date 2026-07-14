@@ -25,6 +25,13 @@ var state = {
 // Agri360 base URL for building attachment URLs (set by /config.js).
 var agri360Base = (window.APP_CONFIG && window.APP_CONFIG.agri360Base) || 'https://agri360.proagrihub.com';
 
+// Board mode: '/managers' shows only manager-channel tickets with 3 traffic-light
+// columns; everything else is the main (dev) board with the original 4 columns.
+var IS_MANAGER_BOARD = location.pathname.indexOf('/managers') === 0;
+
+// Cached manager list (for the assignee dropdown on the manager board).
+var managersList = null;
+
 // ---------------------------------------------------------------------------
 // DOM refs
 // ---------------------------------------------------------------------------
@@ -59,6 +66,10 @@ var els = {
 // Init
 // ---------------------------------------------------------------------------
 document.addEventListener('DOMContentLoaded', function () {
+  if (IS_MANAGER_BOARD) {
+    document.body.classList.add('managers-board');
+    document.title = 'ProAgri Tickets — Managers';
+  }
   setupEventListeners();
   loadTickets();
 });
@@ -99,8 +110,11 @@ function setupEventListeners() {
 // ---------------------------------------------------------------------------
 async function loadTickets() {
   setLoading(true);
+  // Scope to the board's channel: manager board sees only manager tickets,
+  // main board only dev tickets. (server.js proxies the query through.)
+  var channel = IS_MANAGER_BOARD ? 'manager' : 'dev';
   try {
-    var res  = await fetch('/api/tickets');
+    var res  = await fetch('/api/tickets?channel=' + channel);
     if (!res.ok) throw new Error('HTTP ' + res.status);
     var data = await res.json();
     state.tickets = data.tickets || [];
@@ -111,6 +125,21 @@ async function loadTickets() {
     setLoading(false);
     render();
   }
+}
+
+// Fetch (and cache) the manager list for the assignee dropdown. Managers rarely
+// change, so we cache after the first successful load. Returns [] on failure.
+async function loadManagers() {
+  if (managersList) return managersList;
+  try {
+    var res  = await fetch('/api/tickets/managers');
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    var data = await res.json();
+    managersList = data.managers || [];
+  } catch (err) {
+    managersList = [];
+  }
+  return managersList;
 }
 
 function setLoading(on) {
@@ -157,12 +186,22 @@ function render() {
 // ---------------------------------------------------------------------------
 // Board view
 // ---------------------------------------------------------------------------
-var COLUMNS = [
-  { status: 'new',         label: 'New' },
-  { status: 'triage',      label: 'Triage' },
-  { status: 'in_progress', label: 'In Progress' },
-  { status: 'done',        label: 'Done' },
-];
+// Column set depends on the board. The manager board uses 3 traffic-light
+// columns; the main (dev) board keeps the original 4. Every place that needs
+// the status set (board render, drawer status select, calendar day modal)
+// reads from COLUMNS so nothing hardcodes the 4.
+var COLUMNS = IS_MANAGER_BOARD
+  ? [
+      { status: 'open',        label: 'Open' },
+      { status: 'in_progress', label: 'In Progress' },
+      { status: 'done',        label: 'Done' },
+    ]
+  : [
+      { status: 'new',         label: 'New' },
+      { status: 'triage',      label: 'Triage' },
+      { status: 'in_progress', label: 'In Progress' },
+      { status: 'done',        label: 'Done' },
+    ];
 
 function renderBoard() {
   var html = '<div class="board">';
@@ -226,7 +265,10 @@ function buildCard(t) {
         completedBadge +
       '</div>' +
       '<div class="card-footer">' +
-        '<span class="card-submitter">' + esc(t.submitterName || '') + '</span>' +
+        '<span class="card-submitter">' +
+          (t.submitterName ? 'raised by ' + esc(t.submitterName) : '') +
+          (t.assigneeName ? '<span class="card-assignee">&rarr; ' + esc(t.assigneeName) + '</span>' : '') +
+        '</span>' +
         attIcon +
       '</div>' +
     '</div>'
@@ -454,9 +496,9 @@ function renderCalendar() {
 // Modal listing every ticket on a single calendar day. `entries` are
 // { t, kind } wrappers — kind 'done' means it landed here by completion date.
 function openDayModal(dateStr, entries) {
-  var statusLabels = {
-    new: 'New', triage: 'Triage', in_progress: 'In Progress', done: 'Done',
-  };
+  // Derive labels from the active column set so this isn't hardcoded to 4.
+  var statusLabels = {};
+  COLUMNS.forEach(function (c) { statusLabels[c.status] = c.label; });
   var heading = dateStr;
   var d = new Date(dateStr + 'T00:00:00');
   if (!isNaN(d.getTime())) {
@@ -582,6 +624,8 @@ async function openDrawer(id) {
     var res  = await fetch('/api/tickets/' + id);
     if (!res.ok) throw new Error('HTTP ' + res.status);
     var data = await res.json();
+    // Manager board: make sure the assignee options are available first.
+    if (IS_MANAGER_BOARD) await loadManagers();
     renderDrawer(data.ticket);
   } catch (err) {
     els.drawerTitle.textContent = 'Error';
@@ -610,12 +654,10 @@ function renderDrawer(t) {
   var ctxUser = ctx.user || {};
 
   // ── Editable meta fields ──────────────────────────────────
-  var statusOptions = [
-    { value: 'new',         label: 'New' },
-    { value: 'triage',      label: 'Triage' },
-    { value: 'in_progress', label: 'In Progress' },
-    { value: 'done',        label: 'Done' },
-  ];
+  // Status options track the active board's column set (3 vs 4).
+  var statusOptions = COLUMNS.map(function (c) {
+    return { value: c.status, label: c.label };
+  });
   var priorityOptions = [
     { value: 'low',    label: 'Low' },
     { value: 'medium', label: 'Medium' },
@@ -645,6 +687,21 @@ function renderDrawer(t) {
   html += '<label for="dr-deadline">Deadline</label>';
   html += '<input id="dr-deadline" type="date" value="' + esc(t.deadline || '') + '" />';
   html += '</div>';
+
+  // Assignee — manager board only. Options = Unassigned + one per manager.
+  if (IS_MANAGER_BOARD) {
+    var currentAssignee = (t.assigneeId != null) ? String(t.assigneeId) : '';
+    html += '<div class="drawer-field">';
+    html += '<label for="dr-assignee">Assignee</label>';
+    html += '<select id="dr-assignee">';
+    html += '<option value=""' + (currentAssignee === '' ? ' selected' : '') + '>Unassigned</option>';
+    (managersList || []).forEach(function (m) {
+      var val = String(m.id);
+      html += '<option value="' + esc(val) + '"' + (currentAssignee === val ? ' selected' : '') + '>' + esc(m.name || m.email || ('#' + val)) + '</option>';
+    });
+    html += '</select>';
+    html += '</div>';
+  }
 
   html += '<div class="drawer-field">';
   html += '<label>Type</label>';
@@ -847,6 +904,12 @@ async function saveDrawerChanges(id) {
     priority: priorityEl.value,
     deadline: deadlineEl.value || null,
   };
+
+  // Manager board: include the assignee (empty string → null = Unassigned).
+  if (IS_MANAGER_BOARD) {
+    var assigneeEl = $('dr-assignee');
+    if (assigneeEl) payload.assignee_id = assigneeEl.value ? assigneeEl.value : null;
+  }
 
   var btn = $('dr-save');
   btn.disabled = true;
