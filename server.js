@@ -102,8 +102,16 @@ app.get('/sso', (req, res) => {
     maxAge:   12 * 60 * 60 * 1000,
   });
 
-  // Admins land on the main (dev) board; managers on the managers board.
-  return res.redirect(isAdmin ? '/' : '/managers');
+  // Where to land after the session is set. Default: admins → main (dev) board,
+  // managers → the managers board. An optional ?next= lets the caller (e.g. the
+  // Agri360 "Manager Tickets" nav link) force a specific board — but only a
+  // same-origin relative path is honoured, so it can never be turned into an
+  // open redirect. Every downstream route re-checks its own access, so `next`
+  // can request a page but not bypass its guard.
+  const rawNext = typeof req.query.next === 'string' ? req.query.next : '';
+  const safeNext = /^\/[A-Za-z0-9/_-]*$/.test(rawNext) && !rawNext.startsWith('//') ? rawNext : '';
+  const dest = safeNext || (isAdmin ? '/' : '/managers');
+  return res.redirect(dest);
 });
 
 // Logout — clear cookie and bounce to Agri360 login.
