@@ -735,7 +735,20 @@ function renderDrawer(t) {
     html += '<div class="context-block">';
     if (t.submitterName) html += '<div><span class="context-label">Name: </span>' + esc(t.submitterName) + '</div>';
     if (ctx.url) {
-      html += '<div><span class="context-label">Page: </span><a href="' + esc(ctx.url) + '" target="_blank" rel="noopener">Open the page</a></div>';
+      // If the widget captured an appState snapshot, build the link to carry it
+      // to Agri360 via ?tkt_restore= so the app restores the exact screen. The
+      // encoding here MUST stay the exact inverse of the Agri360 decoder:
+      //   JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(decodeURIComponent(p)), c=>c.charCodeAt(0))))
+      // Old tickets / embed submissions carry no appState → fall back to ctx.url.
+      var pageHref = ctx.url;
+      if (ctx.appState && typeof ctx.appState === 'object') {
+        var _base = (window.APP_CONFIG && window.APP_CONFIG.agri360Base) || '';
+        if (_base) {
+          var _enc = encodeURIComponent(btoa(String.fromCharCode.apply(null, new TextEncoder().encode(JSON.stringify(ctx.appState)))));
+          pageHref = _base.replace(/\/$/, '') + '/?tkt_restore=' + _enc;
+        }
+      }
+      html += '<div><span class="context-label">Page: </span><a href="' + esc(pageHref) + '" target="_blank" rel="noopener">Open the page</a></div>';
     }
     if (t.pageSlug) html += '<div><span class="context-label">Slug: </span>' + esc(t.pageSlug) + '</div>';
     if (ctx.viewport) html += '<div><span class="context-label">Viewport: </span>' + esc(ctx.viewport.w) + '×' + esc(ctx.viewport.h) + '</div>';
