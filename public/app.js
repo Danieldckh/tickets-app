@@ -20,6 +20,8 @@ var state = {
   error:           null,
   overviewContent: null,        // cached overview markdown
   overviewLoading: false,
+  // Manager-board filter bar (#95): assignee, overdue chip, due-by date.
+  filters: { assigneeId: '', overdue: false, deadlineBefore: '' },
 };
 
 // Agri360 base URL for building attachment URLs (set by /config.js).
@@ -119,6 +121,9 @@ async function loadTickets() {
     var data = await res.json();
     state.tickets = data.tickets || [];
     state.error   = null;
+    // Manager board: preload the manager list so the filter-bar assignee dropdown
+    // is populated on first render (not only after a drawer opens).
+    if (IS_MANAGER_BOARD) await loadManagers();
   } catch (err) {
     state.error = 'Could not load tickets: ' + err.message;
   } finally {
@@ -203,14 +208,84 @@ var COLUMNS = IS_MANAGER_BOARD
       { status: 'done',        label: 'Done' },
     ];
 
+// Normalize a ticket deadline (date or timestamp) to YYYY-MM-DD.
+function deadlineOf(t) { return String((t && t.deadline) || '').slice(0, 10); }
+
+// Filter predicate for the manager-board filter bar. Predicates are &&-chained:
+// a card is shown only when it passes every active filter.
+//   Overdue = deadline present AND deadline < today AND status != 'done'.
+//   Due by  = deadline on/before the chosen date.
+//   Assignee = ticket assignee matches the selected id.
+function ticketPassesFilters(t) {
+  var f = state.filters || {};
+  if (f.assigneeId && String(t.assigneeId == null ? '' : t.assigneeId) !== String(f.assigneeId)) return false;
+  if (f.overdue) {
+    var dl = deadlineOf(t);
+    if (!(dl && dl < isoDate(new Date()) && t.status !== 'done')) return false;
+  }
+  if (f.deadlineBefore) {
+    var d2 = deadlineOf(t);
+    if (!(d2 && d2 <= f.deadlineBefore)) return false;
+  }
+  return true;
+}
+
+// The interactive filter bar above the manager board: assignee <select>, an
+// Overdue chip, a "due by" date, and Clear. Styled like the app's existing
+// controls; wraps on mobile with no horizontal overflow. Manager board only.
+function buildFilterBar() {
+  var f = state.filters || {};
+  var html = '<div class="board-filters">';
+
+  html += '<select id="flt-assignee" class="flt-select" aria-label="Filter by assignee">';
+  html += '<option value="">All assignees</option>';
+  (managersList || []).forEach(function (m) {
+    var val = String(m.id);
+    html += '<option value="' + esc(val) + '"' + (String(f.assigneeId) === val ? ' selected' : '') + '>' +
+      esc(m.name || m.email || ('#' + val)) + '</option>';
+  });
+  html += '</select>';
+
+  html += '<button type="button" id="flt-overdue" class="flt-chip' + (f.overdue ? ' active' : '') + '">Overdue</button>';
+  html += '<label class="flt-date-label">Due by ' +
+    '<input type="date" id="flt-deadline" class="flt-date" value="' + esc(f.deadlineBefore || '') + '" /></label>';
+
+  var anyActive = f.assigneeId || f.overdue || f.deadlineBefore;
+  if (anyActive) {
+    html += '<button type="button" id="flt-clear" class="flt-clear">Clear</button>';
+  }
+
+  html += '</div>';
+  return html;
+}
+
 function renderBoard() {
-  var html = '<div class="board">';
+  // Manager board applies the filter bar; the main dev board shows all tickets.
+  var visible = IS_MANAGER_BOARD ? state.tickets.filter(ticketPassesFilters) : state.tickets;
+
+  var html = IS_MANAGER_BOARD ? buildFilterBar() : '';
+  html += '<div class="board">';
   COLUMNS.forEach(function (col) {
-    var cards = state.tickets.filter(function (t) { return t.status === col.status; });
+    var cards = visible.filter(function (t) { return t.status === col.status; });
     html += buildColumn(col, cards);
   });
   html += '</div>';
   els.boardView.innerHTML = html;
+
+  // Wire the filter bar (manager board only).
+  if (IS_MANAGER_BOARD) {
+    var asg = $('flt-assignee');
+    if (asg) asg.addEventListener('change', function () { state.filters.assigneeId = asg.value; renderBoard(); });
+    var ov = $('flt-overdue');
+    if (ov) ov.addEventListener('click', function () { state.filters.overdue = !state.filters.overdue; renderBoard(); });
+    var dl = $('flt-deadline');
+    if (dl) dl.addEventListener('change', function () { state.filters.deadlineBefore = dl.value || ''; renderBoard(); });
+    var clr = $('flt-clear');
+    if (clr) clr.addEventListener('click', function () {
+      state.filters = { assigneeId: '', overdue: false, deadlineBefore: '' };
+      renderBoard();
+    });
+  }
 
   // Wire DnD
   els.boardView.querySelectorAll('.ticket-card').forEach(function (card) {
@@ -667,8 +742,16 @@ function renderDrawer(t) {
 
   var html = '';
 
-  // Meta grid with editable status/priority/deadline.
+  // Meta grid with editable title/status/priority/deadline.
   html += '<div class="drawer-meta-grid">';
+
+  // Title (editable) — spans the full grid width. The header <h2> still shows the
+  // current title; this input is the editable source saved back on Save.
+  html += '<div class="drawer-field drawer-field-full">';
+  html += '<label for="dr-title">Title</label>';
+  html += '<input id="dr-title" type="text" value="' + esc(t.title || '') + '" />';
+  html += '</div>';
+
   html += '<div class="drawer-field">';
   html += '<label for="dr-status">Status</label>';
   html += '<select id="dr-status">' + statusOptions.map(function (o) {
@@ -703,9 +786,19 @@ function renderDrawer(t) {
     html += '</div>';
   }
 
+  // Type (editable) — fixed 3-option set (bug / feature / other). A legacy/unknown
+  // token falls back to 'other'.
+  var typeOptions = [
+    { value: 'bug',     label: 'Bug' },
+    { value: 'feature', label: 'Feature' },
+    { value: 'other',   label: 'Other' },
+  ];
+  var curType = (t.type === 'bug' || t.type === 'feature') ? t.type : 'other';
   html += '<div class="drawer-field">';
-  html += '<label>Type</label>';
-  html += '<div>' + buildTypeBadge(t.type) + '</div>';
+  html += '<label for="dr-type">Type</label>';
+  html += '<select id="dr-type">' + typeOptions.map(function (o) {
+    return '<option value="' + o.value + '"' + (curType === o.value ? ' selected' : '') + '>' + o.label + '</option>';
+  }).join('') + '</select>';
   html += '</div>';
 
   if (t.completedAt) {
@@ -722,10 +815,10 @@ function renderDrawer(t) {
 
   html += '<hr class="divider" />';
 
-  // Body / description.
+  // Body / description (editable).
   html += '<div>';
   html += '<div class="drawer-section-title">Description</div>';
-  html += '<div class="drawer-body-text">' + esc(t.body || '') + '</div>';
+  html += '<textarea id="dr-textbody" class="drawer-body-edit" rows="6">' + esc(t.body || '') + '</textarea>';
   html += '</div>';
 
   // Submitter + context.
@@ -911,12 +1004,21 @@ async function saveDrawerChanges(id) {
   var statusEl   = $('dr-status');
   var priorityEl = $('dr-priority');
   var deadlineEl = $('dr-deadline');
+  var titleEl    = $('dr-title');
+  var typeEl     = $('dr-type');
+  var bodyEl     = $('dr-textbody');
 
   var payload = {
     status:   statusEl.value,
     priority: priorityEl.value,
     deadline: deadlineEl.value || null,
   };
+
+  // Editable ticket text (#99) — title / description / type. The backend
+  // PATCH /api/tickets/:id already accepts these; proxied verbatim to Agri360.
+  if (titleEl) payload.title = titleEl.value.trim();
+  if (bodyEl)  payload.body  = bodyEl.value;
+  if (typeEl)  payload.type  = typeEl.value;
 
   // Manager board: include the assignee (empty string → null = Unassigned).
   if (IS_MANAGER_BOARD) {
@@ -940,6 +1042,9 @@ async function saveDrawerChanges(id) {
     // Update in state.
     var idx = state.tickets.findIndex(function (t) { return t.id === id; });
     if (idx !== -1) Object.assign(state.tickets[idx], data.ticket);
+
+    // Keep the drawer header <h2> in sync with an edited title.
+    if (data.ticket && data.ticket.title) els.drawerTitle.textContent = data.ticket.title;
 
     toast('Changes saved', 'success');
     // Re-render background view.

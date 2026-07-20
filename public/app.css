@@ -365,6 +365,74 @@ body.managers-board .managers-badge { display: inline-flex; }
   font-size: 13px;
 }
 
+/* ── Manager-board filter bar (#95) ───────────────────────── */
+.board-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  max-width: 100%;
+}
+.flt-select,
+.flt-date {
+  padding: 6px 10px;
+  border: 1px solid var(--gray-300);
+  border-radius: var(--radius);
+  background: var(--white);
+  color: var(--gray-700);
+  font-size: 13px;
+  max-width: 100%;
+  transition: border-color var(--transition);
+}
+.flt-select:focus,
+.flt-date:focus {
+  outline: none;
+  border-color: var(--green-500);
+  box-shadow: 0 0 0 3px var(--green-100);
+}
+.flt-date-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--gray-500);
+  white-space: nowrap;
+}
+/* Overdue toggle chip — matches the app's pill styling; lights up when active. */
+.flt-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 12px;
+  border: 1px solid var(--gray-300);
+  border-radius: 999px;
+  background: var(--white);
+  color: var(--gray-600);
+  font-size: 13px;
+  font-weight: 600;
+  transition: background var(--transition), color var(--transition), border-color var(--transition);
+}
+.flt-chip:hover { background: var(--gray-50); }
+.flt-chip.active {
+  background: var(--red-100);
+  color: var(--red-600);
+  border-color: var(--red-600);
+}
+.flt-clear {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 12px;
+  border: none;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--green-700);
+  font-size: 13px;
+  font-weight: 600;
+  transition: background var(--transition);
+}
+.flt-clear:hover { background: var(--green-50); text-decoration: underline; }
+
 /* ── Ticket card ──────────────────────────────────────────── */
 .ticket-card {
   background: var(--white);
@@ -724,7 +792,8 @@ body.managers-board .managers-badge { display: inline-flex; }
   margin-bottom: 4px;
 }
 .drawer-field select,
-.drawer-field input[type="date"] {
+.drawer-field input[type="date"],
+.drawer-field input[type="text"] {
   width: 100%;
   padding: 7px 10px;
   border: 1px solid var(--gray-300);
@@ -741,12 +810,36 @@ body.managers-board .managers-badge { display: inline-flex; }
   box-shadow: 0 0 0 3px var(--green-100);
 }
 
+/* Editable title spans both meta-grid columns. */
+.drawer-field-full { grid-column: 1 / -1; }
+
 .drawer-body-text {
   font-size: 14px;
   color: var(--gray-700);
   line-height: 1.7;
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+/* Editable description textarea — matches the drawer field styling. */
+.drawer-body-edit {
+  width: 100%;
+  min-height: 130px;
+  padding: 10px 12px;
+  border: 1px solid var(--gray-300);
+  border-radius: var(--radius-sm);
+  background: var(--white);
+  color: var(--gray-900);
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.6;
+  resize: vertical;
+  transition: border-color var(--transition);
+}
+.drawer-body-edit:focus {
+  outline: none;
+  border-color: var(--green-500);
+  box-shadow: 0 0 0 3px var(--green-100);
 }
 
 .ai-block {
