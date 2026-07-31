@@ -1176,6 +1176,9 @@ async function submitNewTicket(e) {
   payload.priority = form.querySelector('[name="priority"]').value;
   var deadline = form.querySelector('[name="deadline"]').value;
   if (deadline) payload.deadline = deadline;
+  // Manager board creates must land on the manager channel, or the backend
+  // defaults them to 'dev' and they vanish from this board on the next load.
+  if (IS_MANAGER_BOARD) payload.channel = 'manager';
 
   var btn = els.modalSubmit;
   btn.disabled = true;

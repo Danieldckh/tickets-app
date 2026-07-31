@@ -192,6 +192,9 @@ app.all('/api/tickets*', async (req, res) => {
     if (body.type)     fd.append('type',     String(body.type));
     if (body.priority) fd.append('priority', String(body.priority));
     if (body.deadline) fd.append('deadline', String(body.deadline));
+    if (body.channel)       fd.append('channel',       String(body.channel));
+    if (body.assignee_id)   fd.append('assignee_id',   String(body.assignee_id));
+    if (body.work_category) fd.append('work_category', String(body.work_category));
     fetchInit = {
       method:  'POST',
       headers: { 'X-Ticket-Admin-Key': TICKET_ADMIN_KEY },
