@@ -194,7 +194,13 @@ app.all('/api/tickets*', async (req, res) => {
     if (body.deadline) fd.append('deadline', String(body.deadline));
     if (body.channel)       fd.append('channel',       String(body.channel));
     if (body.assignee_id)   fd.append('assignee_id',   String(body.assignee_id));
+    if (Array.isArray(body.assignee_ids)) fd.append('assignee_ids', JSON.stringify(body.assignee_ids));
     if (body.work_category) fd.append('work_category', String(body.work_category));
+    // Record the board user as the ticket creator — admin-key creates carry no
+    // JWT user upstream, so without this the ticket has no "raised by".
+    if (req.user && (req.user.name || req.user.email)) {
+      fd.append('submitter_name', String(req.user.name || req.user.email));
+    }
     fetchInit = {
       method:  'POST',
       headers: { 'X-Ticket-Admin-Key': TICKET_ADMIN_KEY },

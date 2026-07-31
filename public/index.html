@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>ProAgri Tickets</title>
-  <link rel="stylesheet" href="/app.css?v=upload-date" />
+  <link rel="stylesheet" href="/app.css?v=multi-assign" />
   <script src="/config.js"></script>
 </head>
 <body>
@@ -116,6 +116,10 @@
             <input id="f-deadline" name="deadline" type="date" />
           </div>
         </div>
+        <div class="field" id="f-assign-field" hidden>
+          <label>Assign to</label>
+          <div id="f-assignees-slot"></div>
+        </div>
         <div class="modal-footer">
           <button type="button" id="modal-cancel" class="btn-secondary">Cancel</button>
           <button type="submit" id="modal-submit" class="btn-primary">Create ticket</button>
@@ -127,6 +131,6 @@
   <!-- ── Toast container ─────────────────────────────────────────────────── -->
   <div id="toast-container" aria-live="polite" aria-atomic="true"></div>
 
-  <script src="/app.js?v=manager-channel"></script>
+  <script src="/app.js?v=multi-assign"></script>
 </body>
 </html>

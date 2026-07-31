@@ -816,6 +816,43 @@ body.managers-board .managers-badge { display: inline-flex; }
 /* Editable title spans both meta-grid columns. */
 .drawer-field-full { grid-column: 1 / -1; }
 
+/* Read-only meta value (Creator) — plain text, aligned with the inputs. */
+.drawer-readonly {
+  font-size: 14px;
+  color: var(--gray-700);
+  padding: 6px 0;
+  font-weight: 500;
+}
+
+/* Multi-assign checklist — chip-styled checkbox labels, matches .flt-chip. */
+.assignee-multi {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.asg-opt {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid var(--gray-300);
+  border-radius: 999px;
+  background: var(--white);
+  color: var(--gray-600);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+  transition: background var(--transition), color var(--transition), border-color var(--transition);
+}
+.asg-opt:hover { background: var(--gray-50); }
+.asg-opt input { accent-color: var(--green-600); margin: 0; }
+.asg-opt.checked {
+  background: var(--green-100);
+  color: var(--green-700);
+  border-color: var(--green-600);
+}
+
 .drawer-body-text {
   font-size: 14px;
   color: var(--gray-700);

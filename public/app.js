@@ -216,9 +216,25 @@ function deadlineOf(t) { return String((t && t.deadline) || '').slice(0, 10); }
 //   Overdue = deadline present AND deadline < today AND status != 'done'.
 //   Due by  = deadline on/before the chosen date.
 //   Assignee = ticket assignee matches the selected id.
+// All assignee ids on a ticket, as strings. Multi-assign `assignees` wins;
+// falls back to the legacy single assigneeId for rows written before it.
+function assigneeIdsOf(t) {
+  if (t.assignees && t.assignees.length) {
+    return t.assignees.map(function (a) { return String(a.id); });
+  }
+  return (t.assigneeId != null) ? [String(t.assigneeId)] : [];
+}
+
+function assigneeNamesOf(t) {
+  if (t.assignees && t.assignees.length) {
+    return t.assignees.map(function (a) { return a.name; }).filter(Boolean);
+  }
+  return t.assigneeName ? [t.assigneeName] : [];
+}
+
 function ticketPassesFilters(t) {
   var f = state.filters || {};
-  if (f.assigneeId && String(t.assigneeId == null ? '' : t.assigneeId) !== String(f.assigneeId)) return false;
+  if (f.assigneeId && assigneeIdsOf(t).indexOf(String(f.assigneeId)) === -1) return false;
   if (f.overdue) {
     var dl = deadlineOf(t);
     if (!(dl && dl < isoDate(new Date()) && t.status !== 'done')) return false;
@@ -343,7 +359,7 @@ function buildCard(t) {
       '<div class="card-footer">' +
         '<span class="card-submitter">' +
           (t.submitterName ? 'raised by ' + esc(t.submitterName) : '') +
-          (t.assigneeName ? '<span class="card-assignee">&rarr; ' + esc(t.assigneeName) + '</span>' : '') +
+          (assigneeNamesOf(t).length ? '<span class="card-assignee">&rarr; ' + esc(assigneeNamesOf(t).join(', ')) + '</span>' : '') +
         '</span>' +
         attIcon +
       '</div>' +
@@ -718,6 +734,41 @@ function closeDrawer() {
   }, 260);
 }
 
+// Multi-assign checklist of ticket managers. checkedIds = array of id strings.
+// Used by the drawer and the new-ticket modal; the container toggles a
+// .checked class per option so CSS can style selected chips.
+function buildAssigneeChecklist(domId, checkedIds) {
+  var html = '<div class="assignee-multi" id="' + domId + '">';
+  (managersList || []).forEach(function (m) {
+    var val = String(m.id);
+    var on = checkedIds.indexOf(val) !== -1;
+    html += '<label class="asg-opt' + (on ? ' checked' : '') + '">' +
+      '<input type="checkbox" value="' + esc(val) + '"' + (on ? ' checked' : '') + ' /> ' +
+      esc(m.name || m.email || ('#' + val)) + '</label>';
+  });
+  html += '</div>';
+  return html;
+}
+
+function wireAssigneeChecklist(domId) {
+  var box = $(domId);
+  if (!box) return;
+  box.addEventListener('change', function (e) {
+    var input = e.target;
+    if (input && input.type === 'checkbox') {
+      input.closest('.asg-opt').classList.toggle('checked', input.checked);
+    }
+  });
+}
+
+// Checked manager ids (ints) from a checklist, or null if it isn't rendered.
+function checkedAssigneeIds(domId) {
+  var box = $(domId);
+  if (!box) return null;
+  return Array.prototype.slice.call(box.querySelectorAll('input:checked'))
+    .map(function (i) { return parseInt(i.value, 10); });
+}
+
 function renderDrawer(t) {
   els.drawerTitle.textContent = t.title || ('Ticket #' + t.id);
 
@@ -772,18 +823,11 @@ function renderDrawer(t) {
   html += '<input id="dr-deadline" type="date" value="' + esc(t.deadline || '') + '" />';
   html += '</div>';
 
-  // Assignee — manager board only. Options = Unassigned + one per manager.
+  // Creator — read-only, never editable. Replaces the old single-assignee slot.
   if (IS_MANAGER_BOARD) {
-    var currentAssignee = (t.assigneeId != null) ? String(t.assigneeId) : '';
     html += '<div class="drawer-field">';
-    html += '<label for="dr-assignee">Assignee</label>';
-    html += '<select id="dr-assignee">';
-    html += '<option value=""' + (currentAssignee === '' ? ' selected' : '') + '>Unassigned</option>';
-    (managersList || []).forEach(function (m) {
-      var val = String(m.id);
-      html += '<option value="' + esc(val) + '"' + (currentAssignee === val ? ' selected' : '') + '>' + esc(m.name || m.email || ('#' + val)) + '</option>';
-    });
-    html += '</select>';
+    html += '<label>Creator</label>';
+    html += '<div class="drawer-readonly">' + esc(t.submitterName || '—') + '</div>';
     html += '</div>';
   }
 
@@ -813,6 +857,14 @@ function renderDrawer(t) {
     html += '<div class="drawer-field">';
     html += '<label>Completed</label>';
     html += '<div>' + esc(isoDate(new Date(t.completedAt))) + '</div>';
+    html += '</div>';
+  }
+
+  // Assignees — manager board only. Multi-select checklist of ticket managers.
+  if (IS_MANAGER_BOARD) {
+    html += '<div class="drawer-field drawer-field-full">';
+    html += '<label>Assignees</label>';
+    html += buildAssigneeChecklist('dr-assignees', assigneeIdsOf(t));
     html += '</div>';
   }
 
@@ -1002,6 +1054,8 @@ function renderDrawer(t) {
     saveDrawerChanges(t.id);
   });
 
+  wireAssigneeChecklist('dr-assignees');
+
   // Delete button handler.
   $('dr-delete').addEventListener('click', function () {
     confirmDeleteTicket(t.id);
@@ -1028,10 +1082,10 @@ async function saveDrawerChanges(id) {
   if (bodyEl)  payload.body  = bodyEl.value;
   if (typeEl)  payload.type  = typeEl.value;
 
-  // Manager board: include the assignee (empty string → null = Unassigned).
+  // Manager board: include the full assignee set ([] = Unassigned).
   if (IS_MANAGER_BOARD) {
-    var assigneeEl = $('dr-assignee');
-    if (assigneeEl) payload.assignee_id = assigneeEl.value ? assigneeEl.value : null;
+    var asgIds = checkedAssigneeIds('dr-assignees');
+    if (asgIds !== null) payload.assignee_ids = asgIds;
   }
 
   var btn = $('dr-save');
@@ -1153,6 +1207,15 @@ function openLightbox(src) {
 // ---------------------------------------------------------------------------
 function openNewModal() {
   els.newForm.reset();
+  // Manager board: offer multi-assign at creation time.
+  if (IS_MANAGER_BOARD) {
+    var slot = $('f-assignees-slot');
+    if (slot) {
+      slot.innerHTML = buildAssigneeChecklist('f-assignees', []);
+      wireAssigneeChecklist('f-assignees');
+      $('f-assign-field').hidden = false;
+    }
+  }
   els.modalOverlay.classList.remove('hidden');
 }
 
@@ -1178,7 +1241,11 @@ async function submitNewTicket(e) {
   if (deadline) payload.deadline = deadline;
   // Manager board creates must land on the manager channel, or the backend
   // defaults them to 'dev' and they vanish from this board on the next load.
-  if (IS_MANAGER_BOARD) payload.channel = 'manager';
+  if (IS_MANAGER_BOARD) {
+    payload.channel = 'manager';
+    var asgIds = checkedAssigneeIds('f-assignees');
+    if (asgIds && asgIds.length) payload.assignee_ids = asgIds;
+  }
 
   var btn = els.modalSubmit;
   btn.disabled = true;
