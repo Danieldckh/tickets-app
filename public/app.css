@@ -537,6 +537,9 @@ body.managers-board .managers-badge { display: inline-flex; }
 /* Completed date */
 .badge-completed        { background: var(--green-100);  color: var(--green-800); }
 
+/* Uploaded (created) date */
+.badge-uploaded         { background: var(--gray-100);   color: var(--gray-600); }
+
 /* AI category */
 .badge-ai { background: var(--purple-100); color: var(--purple-600); }
 

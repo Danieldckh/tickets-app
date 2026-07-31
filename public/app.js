@@ -336,6 +336,7 @@ function buildCard(t) {
         buildTypeBadge(t.type) +
         buildPriorityPill(t.priority) +
         (t.aiCategory ? '<span class="badge badge-ai">' + esc(t.aiCategory) + '</span>' : '') +
+        (t.createdAt ? buildUploadedBadge(t.createdAt) : '') +
         deadlineBadge +
         completedBadge +
       '</div>' +
@@ -801,6 +802,13 @@ function renderDrawer(t) {
   }).join('') + '</select>';
   html += '</div>';
 
+  if (t.createdAt) {
+    html += '<div class="drawer-field">';
+    html += '<label>Uploaded</label>';
+    html += '<div>' + esc(isoDate(new Date(t.createdAt))) + '</div>';
+    html += '</div>';
+  }
+
   if (t.completedAt) {
     html += '<div class="drawer-field">';
     html += '<label>Completed</label>';
@@ -1240,6 +1248,10 @@ function buildDeadlineBadge(deadline) {
 
 function buildCompletedBadge(completedAt) {
   return '<span class="badge badge-completed">Done ' + esc(isoDate(new Date(completedAt))) + '</span>';
+}
+
+function buildUploadedBadge(createdAt) {
+  return '<span class="badge badge-uploaded">Uploaded ' + esc(isoDate(new Date(createdAt))) + '</span>';
 }
 
 function priorityColor(priority) {
